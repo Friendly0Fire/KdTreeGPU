@@ -64,6 +64,7 @@
  ∗ http://www.cc.gatech.edu/~bader/papers/GPUMergePath-ICS2012.pdf
  */
 
+#include <CudaIntellisense.h>
 #include <assert.h>
 #include <helper_cuda.h>
 #include <omp.h>
@@ -320,13 +321,13 @@ void Gpu::mergeSortShared(
 		setDevice();
 		if (sortDir)
 		{
-			mergeSortSharedKernel<1U><<<blockCount, threadCount, 0, stream>>>(d_coords, d_DstVal, d_DstRef, d_SrcVal, d_SrcRef, arrayLength, p, dim);
-			getLastCudaError("mergeSortShared<1><<<>>> failed\n");
+			mergeSortSharedKernel<1U> CU_OPT(blockCount, threadCount, 0, stream)(d_coords, d_DstVal, d_DstRef, d_SrcVal, d_SrcRef, arrayLength, p, dim);
+			getLastCudaError("mergeSortShared<1> CU_OPT() failed\n");
 		}
 		else
 		{
-			mergeSortSharedKernel<0U><<<blockCount, threadCount, 0, stream>>>(d_coords, d_DstVal, d_DstRef, d_SrcVal, d_SrcRef, arrayLength, p, dim);
-			getLastCudaError("mergeSortShared<0><<<>>> failed\n");
+			mergeSortSharedKernel<0U> CU_OPT(blockCount, threadCount, 0, stream)(d_coords, d_DstVal, d_DstRef, d_SrcVal, d_SrcRef, arrayLength, p, dim);
+			getLastCudaError("mergeSortShared<0> CU_OPT() failed\n");
 		}
 }
 }
@@ -410,13 +411,13 @@ void Gpu::generateSampleRanks(
 		setDevice();
 		if (sortDir)
 		{
-			generateSampleRanksKernel<1U><<<iDivUp(threadCount, 256), 256, 0, stream>>>(d_coords, d_RanksA, d_RanksB, d_SrcVal, d_SrcRef, stride, N, threadCount, p, dim);
-			getLastCudaError("generateSampleRanksKernel<1U><<<>>> failed\n");
+			generateSampleRanksKernel<1U> CU_OPT(iDivUp(threadCount, 256), 256, 0, stream)(d_coords, d_RanksA, d_RanksB, d_SrcVal, d_SrcRef, stride, N, threadCount, p, dim);
+			getLastCudaError("generateSampleRanksKernel<1U> CU_OPT() failed\n");
 		}
 		else
 		{
-			generateSampleRanksKernel<0U><<<iDivUp(threadCount, 256), 256, 0, stream>>>(d_coords, d_RanksA, d_RanksB, d_SrcVal, d_SrcRef, stride, N, threadCount, p, dim);
-			getLastCudaError("generateSampleRanksKernel<0U><<<>>> failed\n");
+			generateSampleRanksKernel<0U> CU_OPT(iDivUp(threadCount, 256), 256, 0, stream)(d_coords, d_RanksA, d_RanksB, d_SrcVal, d_SrcRef, stride, N, threadCount, p, dim);
+			getLastCudaError("generateSampleRanksKernel<0U> CU_OPT() failed\n");
 		}
 	}
 }
@@ -447,7 +448,7 @@ __global__ void mergeRanksAndIndicesKernel(
 	d_Limits += (pos - i) * 2;
 
 	const uint segmentElementsA = stride;
-	const uint segmentElementsB = umin(stride, N - segmentBase - stride);
+	const uint segmentElementsB = std::min(stride, N - segmentBase - stride);
 	const uint segmentSamplesA = getSampleCount(segmentElementsA);
 	const uint segmentSamplesB = getSampleCount(segmentElementsB);
 
@@ -479,27 +480,27 @@ void Gpu::mergeRanksAndIndices(
 #pragma omp critical (launchLock)
 	{
 		setDevice();
-		mergeRanksAndIndicesKernel<<<iDivUp(threadCount, 256), 256, 0, stream>>>(
+		mergeRanksAndIndicesKernel CU_OPT(iDivUp(threadCount, 256), 256, 0, stream)(
 				d_LimitsA,
 				d_RanksA,
 				stride,
 				N,
 				threadCount
 		);
-		getLastCudaError("mergeRanksAndIndicesKernel(A)<<<>>> failed\n");
+		getLastCudaError("mergeRanksAndIndicesKernel(A) CU_OPT() failed\n");
 	}
 
 #pragma omp critical (launchLock)
 	{
 		setDevice();
-		mergeRanksAndIndicesKernel<<<iDivUp(threadCount, 256), 256, 0, stream>>>(
+		mergeRanksAndIndicesKernel CU_OPT(iDivUp(threadCount, 256), 256, 0, stream)(
 				d_LimitsB,
 				d_RanksB,
 				stride,
 				N,
 				threadCount
 		);
-		getLastCudaError("mergeRanksAndIndicesKernel(B)<<<>>> failed\n");
+		getLastCudaError("mergeRanksAndIndicesKernel(B) CU_OPT() failed\n");
 	}
 }
 
@@ -673,7 +674,7 @@ void Gpu::mergeElementaryInterRefs(
 		setDevice();
 		if (sortDir)
 		{
-			mergeElementaryInterRefsKernel<1U><<<mergePairs, SAMPLE_STRIDE, 0, stream>>>(
+			mergeElementaryInterRefsKernel<1U> CU_OPT(mergePairs, SAMPLE_STRIDE, 0, stream)(
 					d_coords,
 					d_DstVal,
 					d_DstRef,
@@ -688,7 +689,7 @@ void Gpu::mergeElementaryInterRefs(
 		}
 		else
 		{
-			mergeElementaryInterRefsKernel<0U><<<mergePairs, SAMPLE_STRIDE, 0, stream>>>(
+			mergeElementaryInterRefsKernel<0U> CU_OPT(mergePairs, SAMPLE_STRIDE, 0, stream)(
 					d_coords,
 					d_DstVal,
 					d_DstRef,
@@ -917,18 +918,18 @@ uint Gpu::balancedSwap(KdCoord* coordA, KdCoord* valA, refIdx_t* refA,
 	{
 		setDevice();
 		if (sortDir == 0) {
-			pivotSelection<0U><<<1,1, 0, stream>>>(coordA, valA, refA, coordB, valB, refB, p, dim, NperG);
+			pivotSelection<0U> CU_OPT(1,1, 0, stream)(coordA, valA, refA, coordB, valB, refB, p, dim, NperG);
 		} else {
-			pivotSelection<1U><<<1,1, 0, stream>>>(coordA, valA, refA, coordB, valB, refB, p, dim, NperG);
+			pivotSelection<1U> CU_OPT(1,1, 0, stream)(coordA, valA, refA, coordB, valB, refB, p, dim, NperG);
 		}
 		checkCudaErrors(cudaGetLastError());
 	}
-	cudaMemcpyFromSymbolAsync(&pivot, d_pivot, sizeof(pivot), 0,cudaMemcpyDeviceToHost, stream);
+	cudaMemcpyFromSymbolAsync(&pivot, &d_pivot, sizeof(pivot), 0,cudaMemcpyDeviceToHost, stream);
 
 #pragma omp critical (launchLock)
 	{
 		setDevice();
-		pivotSwap<<<numThreads,1024, 0, stream>>>(coordA, valA, refA, coordB, valB, refB, p, dim, NperG);
+		pivotSwap CU_OPT(numThreads,1024, 0, stream)(coordA, valA, refA, coordB, valB, refB, p, dim, NperG);
 		checkCudaErrors(cudaGetLastError());
 	}
 	return pivot;
@@ -1091,7 +1092,7 @@ void Gpu::mergeSwap(KdCoord d_coord[], KdCoord d_valSrc[], refIdx_t d_refSrc[],
 		setDevice();
 		checkCudaErrors(cudaMalloc((void **)&d_mpi,  (partitions+1) * sizeof(sint)));
 		// Call getMergePaths to find the merge bounds of each block
-		getMergePaths<1u><<<iDivUp(numThreads,MERGE_PATH_BLOCK_SIZE),MERGE_PATH_BLOCK_SIZE, 0, stream>>>(d_coord, d_valSrc, d_refSrc, aCount,
+		getMergePaths<1u> CU_OPT(iDivUp(numThreads,MERGE_PATH_BLOCK_SIZE),MERGE_PATH_BLOCK_SIZE, 0, stream)(d_coord, d_valSrc, d_refSrc, aCount,
 				d_valSrc + aCount, d_refSrc + aCount, bCount,
 				d_mpi, p, dim, N);
 		checkCudaErrors(cudaGetLastError());
@@ -1101,7 +1102,7 @@ void Gpu::mergeSwap(KdCoord d_coord[], KdCoord d_valSrc[], refIdx_t d_refSrc[],
 	{
 		setDevice();
 		// Call the mergePartitions kernel to merge each block.
-		mergePartitions<1U><<<iDivUp(numThreads,MERGE_PATH_BLOCK_SIZE),MERGE_PATH_BLOCK_SIZE, 0, stream>>>(d_coord, d_valSrc, d_refSrc, aCount,
+		mergePartitions<1U> CU_OPT(iDivUp(numThreads,MERGE_PATH_BLOCK_SIZE),MERGE_PATH_BLOCK_SIZE, 0, stream)(d_coord, d_valSrc, d_refSrc, aCount,
 				d_valSrc + aCount, d_refSrc + aCount, bCount,
 				d_valDst, d_refDst, d_mpi, p, dim,  N);
 		checkCudaErrors(cudaGetLastError());

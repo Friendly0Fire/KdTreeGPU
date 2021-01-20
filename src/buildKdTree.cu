@@ -38,12 +38,11 @@
  * http://www.cse.chalmers.se/~uffe/streamcompaction.pdf
  */
 
+#include <CudaIntellisense.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include <iomanip>
-using std::setprecision;
-using namespace std;
 #include <assert.h>
 #include <helper_cuda.h>
 #include <sm_30_intrinsics.h>
@@ -120,14 +119,14 @@ __device__ void cuWarpCopyRef(refIdx_t refout[], refIdx_t refin[], sint segSize,
 
 	// come up with warpSize word aligned base write address
 	// first calculate the warp aligned read address below the starting address
-	refIdx_t*   refptr = (refIdx_t*)((ulong)refout & ~((warpSize*sizeof(refIdx_t)) -1));
+	refIdx_t*   refptr = (refIdx_t*)((uint)refout & ~((warpSize*sizeof(refIdx_t)) -1));
 	// initialize the output counter to be relative to the warpSize aligned write buffers
 	outCnt = int(refout - refptr);
 	refout = refptr;
 
 	// Do the first reads to align the input pointers to warpSize word boundary
 	// First calculate the warp aligned read address below the starting address
-	refptr = (refIdx_t*)  ((ulong)refin & ~((warpSize*sizeof(refIdx_t)) -1));
+	refptr = (refIdx_t*)  ((uint)refin & ~((warpSize*sizeof(refIdx_t)) -1));
 	// Calculate the input counter
 	inCnt = warpSize + refptr - refin;
 	// then read the words from the input only up to the next warpSize Boundary
@@ -782,7 +781,7 @@ void Gpu::partitionDim(KdNode d_kdNodes[], const KdCoord d_coords[], refIdx_t* l
 #pragma omp critical (launchLock)
 			{
 				setDevice();
-				cuPartition<<<numBlocks, numThrdPerBlk, 0, stream>>>(d_kdNodes, d_coords,                   //pointer to coordinates
+				cuPartition CU_OPT(numBlocks, numThrdPerBlk, 0, stream)(d_kdNodes, d_coords,                   //pointer to coordinates
 						l_references[dim], l_references[dim+1], // pointers to the LT and GT partition output arrays
 						l_references[r], l_references[p],       // pointers to the partitioned and primary array
 						p, dim,                                // axis and number of dimentions
@@ -792,7 +791,7 @@ void Gpu::partitionDim(KdNode d_kdNodes[], const KdCoord d_coords[], refIdx_t* l
 						start, end, remLevels);                // start and end of the data and sub level.
 				checkCudaErrors(cudaGetLastError());
 				// Do the copy to close up the gaps, lt to the lower half, gt to the upper half
-				cuPartitionRemoveGaps<<<numBlocks, numThrdPerBlk, 0, stream>>>(l_references[r], l_references[dim], l_references[dim+1],
+				cuPartitionRemoveGaps CU_OPT(numBlocks, numThrdPerBlk, 0, stream)(l_references[r], l_references[dim], l_references[dim+1],
 						d_segLengthsLT, d_segLengthsGT, start, end, remLevels);
 			}
 		}
@@ -821,7 +820,7 @@ void Gpu::partitionDim(KdNode d_kdNodes[], const KdCoord d_coords[], refIdx_t* l
 #pragma omp critical (launchLock)
 					{
 						setDevice();
-						cuPartitionLWTP<<<numBlocks, numThrdPerBlk, 0, stream>>>(d_kdNodes, d_coords,                     //pointer to coordinates
+						cuPartitionLWTP CU_OPT(numBlocks, numThrdPerBlk, 0, stream)(d_kdNodes, d_coords,                     //pointer to coordinates
 								l_references[dim],                      // pointers to the LT and GT partition output arrays
 								l_references[r], l_references[p],       // pointers to the partitioned and primary array
 								p, dim,                                 // axis and number of dimensions
@@ -830,7 +829,7 @@ void Gpu::partitionDim(KdNode d_kdNodes[], const KdCoord d_coords[], refIdx_t* l
 								start, end, remLevels, logNumWarps);    // start and end of the data and sub level.
 						checkCudaErrors(cudaGetLastError());
 						// do the copy to close up the gaps, lt to the lower half, gt to the upper half
-						cuCopyRef<<<numBlocks, numThrdPerBlk, 0, stream>>>(l_references[r]+start, l_references[dim]+start, end - start + 1);
+						cuCopyRef CU_OPT(numBlocks, numThrdPerBlk, 0, stream)(l_references[r]+start, l_references[dim]+start, end - start + 1);
 					}
 				}
 			}
@@ -838,7 +837,7 @@ void Gpu::partitionDim(KdNode d_kdNodes[], const KdCoord d_coords[], refIdx_t* l
 #define CHECK_FOR_ERRORS
 #ifdef CHECK_FOR_ERRORS
 			sint partitionError = 0;
-			cudaMemcpyToSymbol(d_partitionError,
+			cudaMemcpyToSymbol(&d_partitionError,
 					&partitionError,
 					sizeof(partitionError),
 					0,cudaMemcpyHostToDevice);
@@ -853,7 +852,7 @@ void Gpu::partitionDim(KdNode d_kdNodes[], const KdCoord d_coords[], refIdx_t* l
 #pragma omp critical (launchLock)
 				{
 					setDevice();
-					cuPartitionShort<<<numBlocks, numThrdPerBlk, 0, stream>>>(d_kdNodes, d_coords,  //pointer to coordinates
+					cuPartitionShort CU_OPT(numBlocks, numThrdPerBlk, 0, stream)(d_kdNodes, d_coords,  //pointer to coordinates
 							l_references[dim],                      // pointers to the LT and GT partition output arrays
 							l_references[r], l_references[p],       // pointers to the partitioned and primary array
 							p, dim,                                 // axis and number of dimentions
@@ -863,12 +862,12 @@ void Gpu::partitionDim(KdNode d_kdNodes[], const KdCoord d_coords[], refIdx_t* l
 							level, logNumSubWarps, logSubWarpSize);    // sub level.
 					checkCudaErrors(cudaGetLastError());
 					// Do the copy to close up the gaps, lt to the lower half, gt to the upper half
-					cuCopyRef<<<numBlocks, numThrdPerBlk, 0, stream>>>(l_references[r]+start, l_references[dim]+start, end - start + 1);
+					cuCopyRef CU_OPT(numBlocks, numThrdPerBlk, 0, stream)(l_references[r]+start, l_references[dim]+start, end - start + 1);
 				}
 				checkCudaErrors(cudaGetLastError());
 #ifdef CHECK_FOR_ERRORS
 				cudaMemcpyFromSymbolAsync(&partitionError,
-						d_partitionError,
+						&d_partitionError,
 						sizeof(partitionError),
 						0,cudaMemcpyDeviceToHost, stream);
 				if (partitionError == PART_SIZE_GT_SUB_PART_SIZE ) {
@@ -959,13 +958,13 @@ void Gpu::partitionDimLast(KdNode d_kdNodes[], const KdCoord coord[], refIdx_t* 
 			r = (r >= dim) ? r-dim : r;
 #ifdef CHECK_FOR_ERRORS
 			sint partitionError = 0;
-			cudaMemcpyToSymbol(d_partitionError, &partitionError,
+			cudaMemcpyToSymbol(&d_partitionError, &partitionError,
 					sizeof(partitionError), 0,cudaMemcpyHostToDevice);
 #endif
 #pragma omp critical (launchLock)
 			{
 				setDevice();
-				cuPartitionLast<<<numBlocks, numThrdPerBlk, 0, stream>>>(d_kdNodes, // pointer to kdnode array.
+				cuPartitionLast CU_OPT(numBlocks, numThrdPerBlk, 0, stream)(d_kdNodes, // pointer to kdnode array.
 						l_references[p],  // Reference array for primary
 						thisMidRefs+loop*numThreads, // mid reference array for current level
 						lastMidRefs+loop*numThreads/2, // mid reference array for last level
@@ -973,7 +972,7 @@ void Gpu::partitionDimLast(KdNode d_kdNodes[], const KdCoord coord[], refIdx_t* 
 				checkCudaErrors(cudaGetLastError());
 			}
 #ifdef CHECK_FOR_ERRORS
-			cudaMemcpyFromSymbol(&partitionError, d_partitionError,
+			cudaMemcpyFromSymbol(&partitionError, &d_partitionError,
 					sizeof(partitionError), 0,cudaMemcpyDeviceToHost);
 			if (partitionError == PART_FINISH_DELTA_TOO_LARGE ) {
 				cout << "Error in last partition pass.  Probably due to insufficient number of partiion passes, level = " << level << endl;
@@ -1009,7 +1008,7 @@ uint Gpu::copyRef(refIdx_t refout[], refIdx_t refin[], uint numTuples, sint numT
 		numBlocks = 1;
 		numThrdPerBlk = numThreads;
 	}
-	cuCopyRef<<<numBlocks, numThrdPerBlk, 0, stream>>>(refout, refin, numTuples);
+	cuCopyRef CU_OPT(numBlocks, numThrdPerBlk, 0, stream)(refout, refin, numTuples);
 	return 0;
 }
 

@@ -75,6 +75,7 @@
  * number of dimensions.
  */
 
+#include <CudaIntellisense.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <vector>
@@ -82,50 +83,20 @@
 #include <math.h>
 #include <iostream>
 #include <iomanip>
-using std::setprecision;
-
-using namespace std;
+#include <chrono>
 
 #include "Gpu.h"
 #include "KdNode.h"
 
-
-//#if __cplusplus != 201103L
-#if 0
-
 #include <chrono>
 #define TIMER_DECLARATION()						\
 		auto startTime = std::chrono::high_resolution_clock::now();		\
-		auto endTime = <std::chrono::high_resolution_clock::now();
+		auto endTime = std::chrono::high_resolution_clock::now();
 #define TIMER_START()							\
 		startTime = std::chrono::high_resolution_clock::now(); // high_resolution_clock::is_steady
 #define TIMER_STOP(__TIMED)						\
 		endTime = std::chrono::high_resolution_clock::now();			\
 		__TIMED = (std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - startTime).count())/1000.0
-
-#elif defined(MACH)
-
-#define TIMER_DECLARATION()				\
-		struct timespec startTime, endTime;
-#define TIMER_START()						\
-		mach_gettime(CLOCK_REALTIME, &startTime);
-#define TIMER_STOP(__TIMED)					\
-		clock_gettime(CLOCK_REALTIME, &endTime);			\
-		__TIMED = (endTime.tv_sec - startTime.tv_sec) +			\
-		1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec))
-
-#else
-
-#define TIMER_DECLARATION()				\
-		struct timespec startTime, endTime;
-#define TIMER_START()						\
-		clock_gettime(CLOCK_REALTIME, &startTime);
-#define TIMER_STOP(__TIMED)					\
-		clock_gettime(CLOCK_REALTIME, &endTime);			\
-		__TIMED = (endTime.tv_sec - startTime.tv_sec) +			\
-		1.0e-9 * ((double)(endTime.tv_nsec - startTime.tv_nsec))
-
-#endif
 
 Gpu *gpu;
 
@@ -221,7 +192,7 @@ KdNode* KdNode::createKdTree(KdNode kdNodes[], KdCoord coordinates[],  const sin
 	// Sort the reference array using multiple threads if possible.
 
 	TIMER_START();
-	sint end[numDimensions]; // Array used to collect results of the remove duplicates function
+	sint end[Gpu::MAX_DIMS]; // Array used to collect results of the remove duplicates function
 	Gpu::mergeSort(end, numTuples, numDimensions);
 	TIMER_STOP (double sortTime);
 
@@ -417,7 +388,7 @@ sint main(sint argc, char **argv)
     {7,2,6}, {4,7,9}, {1,6,8}, {3,4,5}, {9,4,1} };
 	 */
 	//  gpu = new Gpu(numThreads,numBlocks,0,numDimensions);
-	Gpu::gpuSetup(2, numThreads,numBlocks,numDimensions);
+	Gpu::gpuSetup(numThreads, numBlocks, numDimensions);
 	if (Gpu::getNumThreads() == 0 || Gpu::getNumBlocks() == 0) {
 		cout << "KdNode Tree cannot be built with " << numThreads << " threads or " << numBlocks << " blocks." << endl;
 		exit(1);

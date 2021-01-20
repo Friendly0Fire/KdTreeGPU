@@ -38,12 +38,11 @@
  * http://www.cse.chalmers.se/~uffe/streamcompaction.pdf
  */
 
+#include <CudaIntellisense.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
 #include <iomanip>
-using std::setprecision;
-using namespace std;
 #include <assert.h>
 #include <helper_cuda.h>
 #include <sm_30_intrinsics.h>
@@ -295,7 +294,7 @@ uint Gpu::copyRefVal(KdCoord valout[], refIdx_t refout[], KdCoord valin[], refId
 #pragma omp critical (launchLock)
 	{
 		setDevice();
-		cuCopyRefVal<<<numBlocks, numThrdPerBlk, 0, stream>>>(refout, valout, refin, valin, segSize, numTuples);
+		cuCopyRefVal CU_OPT(numBlocks, numThrdPerBlk, 0, stream)(refout, valout, refin, valin, segSize, numTuples);
 		checkCudaErrors(cudaGetLastError());
 	}
 	return 0;
@@ -334,21 +333,21 @@ uint Gpu::removeDups(KdCoord coords[], KdCoord val[], refIdx_t ref[], KdCoord va
 	// Clear the error flag and address
 	uint removeDupsError = 0;
 	uint removeDupsErrorAdr = 0x7FFFFFFF;
-	checkCudaErrors(cudaMemcpyToSymbolAsync(d_removeDupsError,    &removeDupsError,    sizeof(d_removeDupsError), 0, cudaMemcpyHostToDevice, stream));
-	checkCudaErrors(cudaMemcpyToSymbolAsync(d_removeDupsErrorAdr, &removeDupsErrorAdr, sizeof(d_removeDupsError), 0, cudaMemcpyHostToDevice, stream));
+	checkCudaErrors(cudaMemcpyToSymbolAsync(&d_removeDupsError,    &removeDupsError,    sizeof(d_removeDupsError), 0, cudaMemcpyHostToDevice, stream));
+	checkCudaErrors(cudaMemcpyToSymbolAsync(&d_removeDupsErrorAdr, &removeDupsErrorAdr, sizeof(d_removeDupsError), 0, cudaMemcpyHostToDevice, stream));
 
 #pragma omp critical (launchLock)
 	{
 		setDevice();
 		checkCudaErrors(cudaMalloc((void **)&d_segLengths, numThreads/32 * sizeof(uint)));
-		cuRemoveDups<<<numBlocks, numThrdPerBlk>>>(coords, reftmp, valtmp, refin, valin, otherCoord, otherRef,
+		cuRemoveDups CU_OPT(numBlocks, numThrdPerBlk)(coords, reftmp, valtmp, refin, valin, otherCoord, otherRef,
 				p, dim, segSize, d_segLengths, numTuples);
 	}
 	checkCudaErrors(cudaGetLastError());
 #pragma omp critical (launchLock)
 	{
 		setDevice();
-		cuRemoveGaps<<<numBlocks, numThrdPerBlk>>>(ref, val, reftmp, valtmp, segSize, d_segLengths, numTuples);
+		cuRemoveGaps CU_OPT(numBlocks, numThrdPerBlk)(ref, val, reftmp, valtmp, segSize, d_segLengths, numTuples);
 		checkCudaErrors(cudaGetLastError());
 	}
 
@@ -363,15 +362,15 @@ uint Gpu::removeDups(KdCoord coords[], KdCoord val[], refIdx_t ref[], KdCoord va
 #endif
 
 	// Check to see if any sort errors were detected
-	checkCudaErrors(cudaMemcpyFromSymbolAsync(&removeDupsError, d_removeDupsError, sizeof(d_removeDupsError), 0, cudaMemcpyDeviceToHost, stream));
+	checkCudaErrors(cudaMemcpyFromSymbolAsync(&removeDupsError, &d_removeDupsError, sizeof(d_removeDupsError), 0, cudaMemcpyDeviceToHost, stream));
 	if (removeDupsError != 0) {
 		cout << "Remove Duplicates found a sorting error on dimension " << p  << endl;
-		checkCudaErrors(cudaMemcpyFromSymbolAsync(&removeDupsErrorAdr, d_removeDupsErrorAdr, sizeof(d_removeDupsErrorAdr), 0, cudaMemcpyDeviceToHost, stream));
+		checkCudaErrors(cudaMemcpyFromSymbolAsync(&removeDupsErrorAdr, &d_removeDupsErrorAdr, sizeof(d_removeDupsErrorAdr), 0, cudaMemcpyDeviceToHost, stream));
 		cout << "at address  " << removeDupsErrorAdr << endl;
 		return removeDupsError;
 	}
 	// If not return the resulting count.
 	uint removeDupsCount;
-	checkCudaErrors(cudaMemcpyFromSymbolAsync(&removeDupsCount, d_removeDupsCount, sizeof(d_removeDupsCount), 0, cudaMemcpyDeviceToHost, stream));
+	checkCudaErrors(cudaMemcpyFromSymbolAsync(&removeDupsCount, &d_removeDupsCount, sizeof(d_removeDupsCount), 0, cudaMemcpyDeviceToHost, stream));
 	return removeDupsCount;
 }

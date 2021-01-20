@@ -36,61 +36,40 @@
 #define gpu_Gpu_h
 
 #include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <cstdio>
+#include <cstdlib>
 #include <helper_cuda.h>
-
 
 using namespace std;
 
 #include "KdNode.h"
 
 class Gpu {
+public:
 	// Gpu class constants;
 	static const uint MAX_THREADS = 1024;
 	static const uint MAX_BLOCKS = 1024;
-	static const uint MAX_GPUS = 2;
+	static const uint MAX_DIMS = 3;
 
 	// Static variables to keep track of multiple GPUs and some setters.
 private:
-	static sint numGPUs;
-	static Gpu* gpus[MAX_GPUS];
+	static Gpu* inst;
 	static refIdx_t firstNode; // Used to pass the index of the first node between methods
 	static KdNode gpu1stNode;	// Used to store root indices fur multiple GPUs
 
-	static inline sint setNumGPUs(sint ng) {numGPUs = min(ng,MAX_GPUS); return numGPUs;}
-	static inline Gpu* getGPU(int n) {return (n>numGPUs || n<0) ? NULL : gpus[n];}
-	static inline void sync() {
-		for (int gpuCnt = 0; gpuCnt < numGPUs; gpuCnt++) gpus[gpuCnt]->syncGPU();
-	}
-
 public:
 	// These are the API methods used outside the class.  They hide any details about the GPUs from the main program.
-	static sint     getNumGPUs() {return numGPUs;}
-	static void     gpuSetup(int gpu_max, int threads, int blocks, int dim); // GPU discovery and multiple GPU static variable setup.
+	static void     gpuSetup(int threads, int blocks, int dim); // GPU discovery and multiple GPU static variable setup.
 	static void     initializeKdNodesArray(KdCoord coordinates[], const sint numTuples, const sint dim);
 	static void     mergeSort(sint end[], const sint numTuples, const sint dim);
 	static refIdx_t buildKdTree(KdNode kdNodes[], const sint numTuples, const sint dim);
 	static sint     verifyKdTree(KdNode kdNodes[], const sint root, const sint dim, const sint numTuples);
 	static void     getKdTreeResults(KdNode kdNodes[], KdCoord coord[], const sint numTuples, const sint dim);
 	static int      getNumThreads() {
-		if (numGPUs==2) {
-			if  (gpus[0] == NULL || gpus[1] == NULL) return 0;
-			return (min(gpus[0]->numThreads,gpus[1]->numThreads));
-		} else {
-			if  (gpus[0] == NULL ) return 0;
-			return (gpus[0]->numThreads);
-		}
+		return inst->numThreads;
 	}
 	static int getNumBlocks() {
-		if (numGPUs==2) {
-			if  (gpus[0] == NULL || gpus[1] == NULL) return 0;
-			return (min(gpus[0]->numBlocks,gpus[1]->numBlocks));
-		} else {
-			if  (gpus[0] == NULL ) return 0;
-			return (gpus[0]->numBlocks);
-		}
+		return inst->numBlocks;
 	}
 
 	// Device specific variables
