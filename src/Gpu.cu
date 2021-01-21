@@ -174,7 +174,7 @@ void Gpu::initializeKdNodesArrayGPU(const KdCoord coordinates[], const sint numT
 		if (d_coord == NULL) {
 			checkCudaErrors(cudaMalloc((void **) &d_coord, (numTuples+1)*sizeof(int)*dim)); // Allocate an extra for max coord
 			checkCudaErrors(cudaMemcpyAsync(d_coord, coordinates, numTuples*sizeof(int)*dim, cudaMemcpyHostToDevice, stream));
-		} else if (d_coord != NULL) {
+		} else if (coordinates != NULL) {
 			cout << "initializeKdNodesArrayGPU Error: coordinate array already allocated" << endl;
 			exit(1);
 		}
@@ -490,54 +490,6 @@ void Gpu::copyRefGPU(sint start, sint num, sint from, sint to) {
 	copyRef(d_references[to]+start,
 			d_references[from]+start,
 			num, numBlocks*numThreads);
-}
-
-/*
- * balancedSwapGPU is a Gpu class method that is a wrapper around the balancedSwap function in mergSort.cu
- * This function uses just one of the GPUs to swap coordinate data between GPUs such that all of the tuples
- * in the is GPU is less than the tuples in the other GPU.  It is a component of the multi GPU sort function.
- * Inputs
- * start            integer offset into the references[from] array where of where to start the removal
- * num              number of elements to check for swap
- * from             index of the references array to swap from.  Results remain in the reference[from]
- * p                primary coordinate on which the swap compare will occur
- * dim              number of dimensions
- * otherGPU         pointer to another GPU.
- * Return
- * pivot			the index into the reference array on the other GPU below which were swapped with this GPU.
- */
-
-sint Gpu::balancedSwapGPU(sint start, sint num, sint from, sint p, sint dim, Gpu* otherGpu){
-	setDevice();
-	return balancedSwap(this->d_coord,
-			this->d_values[from], this->d_references[from]+start,
-			otherGpu->d_coord,
-			otherGpu->d_values[from], otherGpu->d_references[from]+start,
-			1, p, dim, num, numBlocks*numThreads);
-}
-
-/*
- * swapMergeGPU is a Gpu class method that is a wrapper around the mergeSwap function in mergSort.cu
- * After the BalancedSwap function exchanges the coordinates between the two GPU, there remains
- * two independently sorted arrays in each GPU.  This function merges those into a single sorted array.
- * Inputs
- * start            integer offset into the references[from] array where of where start of the lower sorted data
- * num              number of elements to check for swap
- * from             index of the references array to merge from.
- * to               index of the references array to merge to.
- * mergePoint		index of the start of the upper sorted data.
- * p                primary coordinate on which the merge compare will occur
- * dim              number of dimensions
- * Output
- */
-void Gpu::swapMergeGPU(sint start, sint num, sint from, sint to, sint mergePoint, const sint p, const sint dim){
-	setDevice();
-	mergeSwap(d_coord,
-			d_values[from],
-			d_references[from],
-			d_values[to],
-			d_references[to],
-			mergePoint, p, dim, num, numBlocks*numThreads);
 }
 
 /*
@@ -951,14 +903,11 @@ void Gpu::getKdNodesFromGPU(KdNode kdNodes[], const sint numTuples){
  * numTuples         size of kdNodes array to copy
  * Output
  * kdNodes[]        Host KdNodes array where data from the GPU should be put
- * coord[]          Host coordinate array where data from the GPU should be put
- *                    * This is only used for the 2 GPU case where coordinate data
- *                       may get reordered
  */
-void Gpu::getKdTreeResults(KdNode kdNodes[], KdCoord coord[], const sint numTuples, const sint dim) {
+void Gpu::getKdTreeResults(KdNode kdNodes[], const sint numTuples) {
 	// Copy the knNodes array back
 	if (kdNodes != NULL ){
-        inst->getKdNodesFromGPU(kdNodes + numTuples, numTuples);
+        inst->getKdNodesFromGPU(kdNodes, numTuples);
 	} else {
 		cout << "getKdTreeResults Error: Don't know where to put the kdNodes" << endl;
 		exit(1);

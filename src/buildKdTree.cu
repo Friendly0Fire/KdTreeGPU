@@ -53,8 +53,8 @@
 
 __device__ sint superKeyCompareB(const KdCoord *a, const KdCoord *b, const sint p, const sint dim)
 {
-	sint diff = a[p] - b[p];
-	for (sint i = 1; diff == 0 && i < dim; i++) {
+	KdCoordDiff diff = a[p] - b[p];
+	for (sint i = 1; KdCoordDiffIsZero(diff) && i < dim; i++) {
 		sint r = i + p;
 		r = (r < dim) ? r : r - dim;
 		diff = a[r] - b[r];
@@ -64,8 +64,8 @@ __device__ sint superKeyCompareB(const KdCoord *a, const KdCoord *b, const sint 
 
 __device__ sint superKeyComparePD(const KdCoord ap, const KdCoord bp, const KdCoord *a, const KdCoord *b, const sint p, const sint dim)
 {
-	sint diff = ap - bp;
-	for (sint i = 1; diff == 0 && i < dim; i++) {
+	KdCoordDiff diff = ap - bp;
+	for (sint i = 1; KdCoordDiffIsZero(diff) && i < dim; i++) {
 		sint r = i + p;
 		r = (r < dim) ? r : r - dim;
 		diff = a[r] - b[r];
@@ -119,14 +119,14 @@ __device__ void cuWarpCopyRef(refIdx_t refout[], refIdx_t refin[], sint segSize,
 
 	// come up with warpSize word aligned base write address
 	// first calculate the warp aligned read address below the starting address
-	refIdx_t*   refptr = (refIdx_t*)((uint)refout & ~((warpSize*sizeof(refIdx_t)) -1));
+	refIdx_t*   refptr = (refIdx_t*)((size_t)refout & ~((warpSize*sizeof(refIdx_t)) -1));
 	// initialize the output counter to be relative to the warpSize aligned write buffers
 	outCnt = int(refout - refptr);
 	refout = refptr;
 
 	// Do the first reads to align the input pointers to warpSize word boundary
 	// First calculate the warp aligned read address below the starting address
-	refptr = (refIdx_t*)  ((uint)refin & ~((warpSize*sizeof(refIdx_t)) -1));
+	refptr = (refIdx_t*)  ((size_t)refin & ~((warpSize*sizeof(refIdx_t)) -1));
 	// Calculate the input counter
 	inCnt = warpSize + refptr - refin;
 	// then read the words from the input only up to the next warpSize Boundary

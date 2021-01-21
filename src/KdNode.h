@@ -46,10 +46,24 @@
 #include <iostream>
 #include <iomanip>
 #include <stdint.h>
-using std::setprecision;
 
-typedef int32_t KdCoord;
+#include <chrono>
+#define TIMER_DECLARATION()						\
+		auto startTime = std::chrono::high_resolution_clock::now();		\
+		auto endTime = std::chrono::high_resolution_clock::now();
+#define TIMER_START()							\
+		startTime = std::chrono::high_resolution_clock::now(); // high_resolution_clock::is_steady
+#define TIMER_STOP(__TIMED)						\
+		endTime = std::chrono::high_resolution_clock::now();			\
+		__TIMED = (std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - startTime).count())/1000.0
+
+typedef float KdCoord;
+typedef float KdCoordDiff;
 typedef int32_t refIdx_t;
+
+inline bool KdCoordDiffIsZero(KdCoordDiff d) {
+    return std::fabs(d) <= 1e-5f;
+}
 
 typedef int32_t sint;
 typedef uint32_t uint;
@@ -138,7 +152,7 @@ public:
 	 * returns: a list that contains the kdNodes that lie within the cutoff distance of the query node
 	 */
 public:
-	list<KdNode> searchKdTree(const KdNode kdNodes[], const KdCoord coordinates[], const KdCoord* query, const sint cut,
+	std::list<KdNode> searchKdTree(const KdNode kdNodes[], const KdCoord coordinates[], const KdCoord* query, const sint cut,
 			const sint dim, const sint depth) const;
 
 	/*

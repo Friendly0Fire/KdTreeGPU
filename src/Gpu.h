@@ -64,7 +64,7 @@ public:
 	static void     mergeSort(sint end[], const sint numTuples, const sint dim);
 	static refIdx_t buildKdTree(KdNode kdNodes[], const sint numTuples, const sint dim);
 	static sint     verifyKdTree(KdNode kdNodes[], const sint root, const sint dim, const sint numTuples);
-	static void     getKdTreeResults(KdNode kdNodes[], KdCoord coord[], const sint numTuples, const sint dim);
+	static void     getKdTreeResults(KdNode kdNodes[], const sint numTuples);
 	static int      getNumThreads() {
 		return inst->numThreads;
 	}
@@ -158,9 +158,6 @@ private:
 	void getReferenceFromGPU(refIdx_t reference[], const sint p, uint numTuples);
 	void copyRefValGPU(sint start, sint num, sint from, sint to);
 	void copyRefGPU(sint start, sint num, sint from, sint to);
-	sint balancedSwapGPU(sint start, sint num, sint from, sint p, sint dim, Gpu* otherGpu);
-	void swapMergeGPU(sint start, sint num, sint from, sint to, sint mergePoint,
-			const sint p, const sint dim);
 	void getCoordinatesFromGPU(KdCoord coord[],  const uint numTuples,  const sint dim);
 	void fillMemGPU(uint* d_pntr, const uint val, const uint num);
 	void fillMemGPU(sint* d_pntr, const sint val, const uint num);
@@ -238,13 +235,6 @@ private: // These are the methods specific mergeSort
 			sint      p,
 			sint      dim
 	);
-	uint balancedSwap(KdCoord* coordA, KdCoord* valA, refIdx_t* refA,
-			KdCoord* coordB, KdCoord *valB, refIdx_t* refB,
-			sint sortDir, sint p, sint dim, uint NperG, sint numThreads);
-
-	void mergeSwap(KdCoord d_coord[], KdCoord d_valSrc[], refIdx_t d_refSrc[],
-			KdCoord d_valDst[], refIdx_t d_refDst[],
-			sint mergePnt, sint p, sint dim,  uint N, sint numThreads);
 
 private: // These are the methods specific removeDupes
 	uint copyRefVal(KdCoord valout[], refIdx_t refout[], KdCoord valin[], refIdx_t refin[], uint numTuples, sint numThreads);
